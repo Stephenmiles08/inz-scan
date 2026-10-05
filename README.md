@@ -69,10 +69,11 @@ Two things to get right when you hand it over:
 - **Send the single file, not a whole archive, and give them the SHA-256** so they can confirm what
   they received is what you intended:
   ```
-  20afc357e338de9fe459a32b241bf2d8b981057c267a85abcea1d44331e7d6de  inz_scan.py
+  2a74645ce64ca1f8012ddc69b8e029a04a85b7eecdcbb1637e8f683a2a3c3ab7  inz_scan.py     (v1.2)
   ```
-  (`shasum -a 256 inz_scan.py` on macOS.) They can also read the whole thing first — it's ~36 KB of
-  plain Python with no minification and no bundled data.
+  (`shasum -a 256 inz_scan.py` on macOS.) [`SHA256SUMS`](SHA256SUMS) holds the authoritative values —
+  if the line above disagrees with it, trust `SHA256SUMS` and this README is stale. They can also read
+  the whole thing first: ~36 KB of plain Python, no minification, no bundled data.
 - **Treat `before.json` as sensitive.** It records hostnames, usernames and file paths from their
   machine. It is not a public artefact.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2 — 2026-10-05
+
+Portability fix and hand-off documentation.
+
+- `scan_processes()` now invokes `ps -Ao pid=,args=` instead of `ps -eo pid=,args=`.
+  On Linux `-e` means “every process”; on the BSDs/macOS `-A` is the unambiguous spelling.
+  `-A` is correct on both, so there was no reason to rely on `-e`.
+- README: added a **Requirements** section (Python 3.8+, plus the macOS `python3` /
+  Xcode Command Line Tools preflight) and a **Handing this to someone else** section
+  covering the SHA-256 check and the fact that `before.json` records machine identifiers.
+- Added `SHA256SUMS`.
+
 ## 1.1 — 2026-10-05
 
 Initial public release.
