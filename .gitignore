@@ -1,0 +1,14 @@
+# evidence captured on a machine you are investigating
+*.inz.cjs
+*.inz.orig
+*.inz.tmp
+inz-quarantine-*/
+before.json
+after.json
+report.json
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
