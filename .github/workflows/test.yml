@@ -1,0 +1,117 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.impl }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        impl: [node, python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        if: matrix.impl == 'node'
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        if: matrix.impl == 'python'
+        with:
+          python-version: "3.x"
+
+      - name: Toolchain versions
+        run: |
+          node --version
+          python3 --version
+          ps --version 2>/dev/null || ps -p $$ -o comm=
+
+      - name: Syntax gate
+        run: |
+          node --check inz_scan.js
+          node --check selftest_inz_scan.js
+          node --check selftest_macos.js
+          node --check parity_check.js
+          python3 -m py_compile inz_scan.py selftest_inz_scan.py
+
+      - name: Offline guarantee - Node build requires no network module
+        run: |
+          if grep -nE "require\(['\"](https?|net|tls|dgram|dns)['\"]\)|fetch\(|https?\.request|net\.connect|dns\." inz_scan.js; then
+            echo "::error::inz_scan.js must never make network calls"
+            exit 1
+          fi
+          echo "offline OK - no network module required"
+
+      - name: Offline guarantee - Python build imports no HTTP client
+        run: |
+          if grep -nE '^\s*(import|from)\s+(urllib|http\.client|requests|socket|aiohttp|httpx)|\burlopen\b|\bsocket\.socket\b' inz_scan.py; then
+            echo "::error::inz_scan.py must never make network calls"
+            exit 1
+          fi
+          echo "offline OK - no HTTP client imported"
+
+      - name: Regression suite (Node)
+        if: matrix.impl == 'node'
+        run: node selftest_inz_scan.js
+
+      - name: Regression suite (Python)
+        if: matrix.impl == 'python'
+        run: python3 selftest_inz_scan.py
+
+      - name: Clean-tree scan must report nothing
+        run: |
+          mkdir -p "$RUNNER_TEMP/empty"
+          if [ "${{ matrix.impl }}" = "node" ]; then
+            node inz_scan.js scan --root "$RUNNER_TEMP/empty" --json "$RUNNER_TEMP/out.json"
+          else
+            python3 inz_scan.py scan --root "$RUNNER_TEMP/empty" --json "$RUNNER_TEMP/out.json"
+          fi
+          echo "clean scan OK (exit 0 == no findings)"
+
+      - name: remove-all without --yes must refuse (exit 2)
+        run: |
+          set +e
+          if [ "${{ matrix.impl }}" = "node" ]; then
+            node inz_scan.js remove-all --root "$RUNNER_TEMP/empty"; code=$?
+          else
+            python3 inz_scan.py remove-all --root "$RUNNER_TEMP/empty"; code=$?
+          fi
+          set -e
+          test "$code" -eq 2 || { echo "::error::expected exit 2, got $code"; exit 1; }
+          echo "refusal OK"
+
+  macos-specific:
+    name: darwin-only detection paths
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: BSD ps / lsof are present and usable
+        run: |
+          ps -Ao pid=,args= | head -3
+          lsof -nP -i | head -3 || true
+      - name: darwin-only suite (plants /Applications + Library paths, then cleans up)
+        run: node selftest_macos.js
+
+  parity:
+    name: cross-implementation parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Both builds must report identical finding sets
+        run: node parity_check.js
