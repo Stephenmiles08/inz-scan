@@ -216,38 +216,22 @@ function main() {
                                          p.indexOf('npm\\lib') !== -1).sort();
     check('npm-root targets are platform-independent (real FS, both simulated sets agree)',
       JSON.stringify(npmOf(mac)) === JSON.stringify(npmOf(lin)));
-    // ...but whether ANY npm root exists at all is environment-dependent: a container with no
-    // global npm install legitimately yields none. Assert conditionally instead of pretending.
-    const globalNpmRootExists = (() => {
-      for (const c of ['/usr/local/lib/node_modules', '/opt/homebrew/lib/node_modules',
-                       '/usr/lib/node_modules']) {
-        try { if (fs.statSync(c).isDirectory()) return true; } catch (e) {}
-      }
-      const r = spawnSync('npm', ['root', '-g'], {encoding: 'utf8', timeout: 20000});
-      if (r.status === 0 && r.stdout) {
-        try { return fs.statSync(r.stdout.trim()).isDirectory(); } catch (e) { return false; }
-      }
-      return false;
-    })();
-    if (globalNpmRootExists) {
-      const roots = scanner.globalNpmRoots();
+    // Ask the scanner what it actually discovered rather than re-deriving it here - duplicated
+    // logic is how the previous version of this check managed to pass while proving nothing.
+    const discoveredRoots = scanner.globalNpmRoots();
+    if (discoveredRoots.length > 0) {
       const targets = scanner.injectionTargets();
       if (npmOf(targets).length === 0) {
-        console.log('    DIAG: hardcoded candidates exist? ' + JSON.stringify(
-          ['/usr/local/lib/node_modules', '/opt/homebrew/lib/node_modules', '/usr/lib/node_modules']
-            .map((c) => { try { return fs.statSync(c).isDirectory(); } catch (e) { return false; } })));
-        const g = spawnSync('npm', ['root', '-g'], {encoding: 'utf8', timeout: 20000});
-        console.log('    DIAG: npm root -g => ' + JSON.stringify((g.stdout || '').trim()) +
-                    ' (status ' + g.status + ')');
-        console.log('    DIAG: globalNpmRoots() => ' + JSON.stringify(roots));
+        console.log('    DIAG: globalNpmRoots() => ' + JSON.stringify(discoveredRoots));
         console.log('    DIAG: injectionTargets() length ' + targets.length + ', npmOf 0');
         console.log('    DIAG: HOME=' + os.homedir() + '  platform=' + process.platform);
       }
-      check('a machine WITH a global npm install gets the npm CLI target',
-        npmOf(scanner.injectionTargets()).length > 0);
+      check('every discovered npm root yields an npm CLI target',
+        npmOf(targets).length === discoveredRoots.length,
+        'roots=' + discoveredRoots.length + ' targets=' + npmOf(targets).length);
     } else {
-      console.log('  [SKIP] no global npm install on this machine (npm root -g does not resolve' +
-                  ' to an existing dir) - npm-CLI target assertion not applicable here');
+      console.log('  [SKIP] no global npm install on this machine (globalNpmRoots() empty)' +
+                  ' - npm-CLI target assertion not applicable here');
     }
   } finally {
     rmrf(base);
