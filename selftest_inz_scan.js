@@ -228,6 +228,19 @@ function main() {
       return false;
     })();
     if (globalNpmRootExists) {
+      const roots = scanner.globalNpmRoots();
+      const targets = scanner.injectionTargets();
+      if (npmOf(targets).length === 0) {
+        console.log('    DIAG: hardcoded candidates exist? ' + JSON.stringify(
+          ['/usr/local/lib/node_modules', '/opt/homebrew/lib/node_modules', '/usr/lib/node_modules']
+            .map((c) => { try { return fs.statSync(c).isDirectory(); } catch (e) { return false; } })));
+        const g = spawnSync('npm', ['root', '-g'], {encoding: 'utf8', timeout: 20000});
+        console.log('    DIAG: npm root -g => ' + JSON.stringify((g.stdout || '').trim()) +
+                    ' (status ' + g.status + ')');
+        console.log('    DIAG: globalNpmRoots() => ' + JSON.stringify(roots));
+        console.log('    DIAG: injectionTargets() length ' + targets.length + ', npmOf 0');
+        console.log('    DIAG: HOME=' + os.homedir() + '  platform=' + process.platform);
+      }
       check('a machine WITH a global npm install gets the npm CLI target',
         npmOf(scanner.injectionTargets()).length > 0);
     } else {

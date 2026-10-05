@@ -793,4 +793,5 @@ if (require.main === module) process.exit(main());
 
 module.exports = {VERSION, INJECTION_MARKERS, STRONG_SIGNATURES, MALICIOUS_PACKAGES,
                   grepSignatures, stripInjected, origIsPristine, parseArgs,
-                  injectionTargets, C2_IPS, INSTALL_ROOTS, STAGING_SUFFIXES, ANTI_ANALYSIS_MD5};
+                  injectionTargets, globalNpmRoots, C2_IPS, INSTALL_ROOTS, STAGING_SUFFIXES,
+                  ANTI_ANALYSIS_MD5};
