@@ -44,7 +44,7 @@ import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
-VERSION = "1.2"
+VERSION = "1.3"
 HOME = Path.home()
 IS_MAC = sys.platform == "darwin"
 IS_WIN = os.name == "nt"

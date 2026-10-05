@@ -1,12 +1,24 @@
 # inz-scan
 
-**Detect — and if you choose, remove — the NullReceiver / “jsbot” npm supply-chain worm on developer machines.** macOS-first, Linux supported, single file, stdlib only.
+**Detect — and if you choose, remove — the NullReceiver / “jsbot” npm supply-chain worm on developer machines.** macOS-first, Linux supported. No dependencies, no install step, single file.
+
+Two identical implementations — **same detection set, same rails, same exit codes, verified to return byte-identical finding sets on the same fixture** ([`parity_check.js`](parity_check.js)):
 
 ```bash
-python3 inz_scan.py scan                    # read-only detection (default) — offline
-python3 inz_scan.py remove-all --dry-run    # preview exactly what removal would do
-python3 inz_scan.py remove-all --yes        # quarantine everything detected
+node inz_scan.js scan                    # 1. Node — no preflight. Use this one.
+python3 inz_scan.py scan                 # 2. Python — if python3 is already there
 ```
+
+```bash
+# either build, same flags
+<runner> scan                    # read-only detection (default) — offline
+<runner> remove-all --dry-run    # preview exactly what removal would do
+<runner> remove-all --yes        # quarantine everything detected
+```
+
+**Prefer the Node build for handing to someone.** This campaign's victims are Node developers, so
+`node` is already present — that removes the only real preflight the Python build has (`python3`,
+which macOS does not ship). `inz_scan.js` alone is the complete tool.
 
 No dependencies. No network. Never executes what it finds.
 
@@ -28,24 +40,30 @@ See **[IOCS.md](IOCS.md)** for the full indicator set and **[TECHNIQUE.md](TECHN
 
 ---
 
-## Requirements — one thing to check first
+## Requirements — check this first
 
-**Python 3.8 or newer.** That is the entire dependency list — stdlib only, nothing to install.
+**Node 14.14 or newer — recommended, and there is nothing to install.** If you were hit through
+npm, you have node, and that is the whole dependency list.
 
-On macOS `python3` is **not** part of the OS. `/usr/bin/python3` is an Xcode Command Line Tools
-shim: if CLT is installed it works, and if it isn't, it either pops an installer or fails outright
-in a headless/SSH session. So check before installing anything:
+```bash
+node --version           # want v14.14.0 or newer
+node inz_scan.js scan    # no install, no build, no dependencies
+```
+
+**Python 3.8+ is supported as an alternative** (`inz_scan.py`), but it has a preflight the Node
+build does not: on macOS `python3` is **not** part of the OS. `/usr/bin/python3` is an Xcode Command
+Line Tools shim — if CLT is installed it works, and if it isn't it either pops an installer or fails
+outright in a headless/SSH session. If you need that path:
 
 ```bash
 python3 --version        # want 3.8 or newer
 ```
 
-If that fails, either install the Command Line Tools (`xcode-select --install`, a few GB) or
-Homebrew's Python (`brew install python`). Most Node developers already have CLT, because native
-npm modules and Homebrew both need it — but don't assume it.
+If it fails: `xcode-select --install` (a few GB) or `brew install python`.
 
-> Tested with Python 3.12. This claim about macOS is *not* something we could verify — we have no
-> Mac to test on. Run `python3 --version` and see for yourself before anything else.
+> Tested with Node 18.19 and Python 3.12. The claim about macOS not shipping `python3` is *not*
+> something we could verify — we have no Mac to test on. Run `python3 --version` and see for
+> yourself before relying on that build.
 
 ---
 
@@ -55,29 +73,24 @@ The first step is always safe: `scan` is read-only and touches the network zero 
 run on a live, working machine without any preparation.
 
 ```bash
-# 1. on their Mac - preflight, then a read-only look
-python3 --version
-python3 inz_scan.py scan --json before.json
+# 1. on their Mac - a read-only look. No install, no preflight.
+node inz_scan.js scan --json before.json
 
 # 2. have them send you before.json, and read it before touching anything
-python3 inz_scan.py remove-all --dry-run          # still changes nothing
-python3 inz_scan.py remove-all --yes              # quarantines, does not delete
+node inz_scan.js remove-all --dry-run          # still changes nothing
+node inz_scan.js remove-all --yes              # quarantines, does not delete
 ```
 
 Two things to get right when you hand it over:
 
 - **Send the single file, not a whole archive, and give them the SHA-256** so they can confirm what
-  they received is what you intended:
-  ```
-  2a74645ce64ca1f8012ddc69b8e029a04a85b7eecdcbb1637e8f683a2a3c3ab7  inz_scan.py     (v1.2)
-  ```
-  (`shasum -a 256 inz_scan.py` on macOS.) [`SHA256SUMS`](SHA256SUMS) holds the authoritative values —
-  if the line above disagrees with it, trust `SHA256SUMS` and this README is stale. They can also read
-  the whole thing first: ~36 KB of plain Python, no minification, no bundled data.
+  they received is what you intended — see [`SHA256SUMS`](SHA256SUMS) for the authoritative values.
+  (`shasum -a 256 inz_scan.js` on macOS.) They can also read the whole thing first: plain source,
+  no minification, no bundled data, no dependencies.
 - **Treat `before.json` as sensitive.** It records hostnames, usernames and file paths from their
   machine. It is not a public artefact.
 
-They do **not** need the rest of this repo to run a scan — `inz_scan.py` alone is complete.
+They do **not** need the rest of this repo to run a scan — `inz_scan.js` alone is complete.
 
 ---
 
@@ -117,17 +130,20 @@ Running an unknown binary on a machine you suspect is compromised is a bad idea.
 ## Usage
 
 ```bash
-inz_scan.py scan                        # read-only detection
-inz_scan.py scan --deep                 # also open every JS/TS file, not just the allowlist
-inz_scan.py scan --json report.json
-inz_scan.py scan --root /Users/them     # limit scope (repeatable)
-inz_scan.py scan --exclude ~/samples    # skip a dir (e.g. your own evidence folder)
+node inz_scan.js scan                        # read-only detection
+node inz_scan.js scan --deep                 # also open every JS/TS file, not just the allowlist
+node inz_scan.js scan --json report.json
+node inz_scan.js scan --root /Users/them     # limit scope (repeatable)
+node inz_scan.js scan --exclude ~/samples    # skip a dir (e.g. your own evidence folder)
 
-inz_scan.py remove-all --dry-run        # preview, changes nothing
-inz_scan.py remove-all --yes            # quarantine
-inz_scan.py remove-all --yes --strip    # also neutralise injected code blocks
-inz_scan.py remove-all --yes --purge    # delete after backing up
+node inz_scan.js remove-all --dry-run        # preview, changes nothing
+node inz_scan.js remove-all --yes            # quarantine
+node inz_scan.js remove-all --yes --strip    # also neutralise injected code blocks
+node inz_scan.js remove-all --yes --purge    # delete after backing up
 ```
+
+`inz_scan.py` takes **identical flags and exit codes** — swap `node inz_scan.js` for
+`python3 inz_scan.py`. `<runner> --help` on either.
 
 Exit codes: `1` findings (CI-friendly), `0` clean, `2` you forgot `--yes`.
 
@@ -152,14 +168,18 @@ Exit codes: `1` findings (CI-friendly), `0` clean, `2` you forgot `--yes`.
 ## Verify it before you trust it
 
 ```bash
-python3 selftest_inz_scan.py     # 33 checks: detection, removal, strip safety, option handling
+node selftest_inz_scan.js        # 32 checks - Node build
+python3 selftest_inz_scan.py     # 33 checks - Python build
+node parity_check.js             # do both builds report the same findings?
 ```
 
-Current state: **33/33 passing**. Verification actually performed:
+Current state: **Node 32/32, Python 33/33, and parity check reports identical finding sets.** Verification actually performed:
 
 | Check | Result |
 |---|---|
-| Regression suite | 33/33 pass |
+| Node regression suite | 32/32 pass |
+| Python regression suite | 33/33 pass |
+| Cross-implementation parity (same fixture, env-independent findings) | **13/13 identical** |
 | Whole home tree (excluding the malware-evidence folder) | **NO INDICATORS FOUND** |
 | `/home/ubuntu/tools`, `pentest/training`, `/usr/local/lib/node_modules` | 0 findings |
 | Pointed at the real retrieved payloads | 17 findings, 16 critical (correct detection) |
@@ -174,6 +194,8 @@ The tool is **macOS-first by design** (`/Applications/*.app` targets, `~/Library
 - Signature-based against this family as recovered on **2026-10-05**. A rebuilt variant with new markers needs new signatures.
 - It cannot see inside an encrypted volume it lacks access to, or detect a dormant infection it has no signature for.
 - `--deep` on a very large home directory takes a while; the default scan trades completeness inside `node_modules` for speed.
+- **The process check matches on full command-line arguments**, so any process whose argv merely *mentions* a marker is reported — an analyst running `grep -r .inz.cjs`, or a shell sourcing a script with those strings in it. Treat a `process` finding as something to eyeball, not as proof of a live infection on its own. The high-signal case is a detached `node -e` whose argv carries `global['_V']`.
+- `lsof` without root only sees your own sockets. The malware runs as you, so that is usually enough — but it will not attribute connections to other users' processes.
 - It is not a substitute for reinstalling the OS if the machine held high-value secrets.
 
 ---

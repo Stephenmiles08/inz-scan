@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.3 — 2026-10-05
+
+**Node build.** The victims of this campaign are Node developers, so `node` is already present —
+which removes the only real preflight the Python build has (`python3`, which macOS does not ship).
+
+- **`inz_scan.js`** — a zero-dependency implementation of the full detection and removal set.
+  Same flags, same output shape, same exit codes (`0` clean, `1` findings, `2` missing `--yes`).
+  Requires Node 14.14+.
+- **`selftest_inz_scan.js`** — 32 checks, the suite ported to Node.
+- **`parity_check.js`** — builds one fixture, runs both implementations over it, and diffs the
+  findings. **Result: identical finding sets (13/13).** Parity is asserted, not assumed.
+- README rewritten to lead with the Node build and to document the Python build as the alternative.
+- Added two documented limitations found while building this: the process check matches on full
+  command-line arguments (so a `grep` that merely mentions a marker gets reported), and `lsof`
+  without root only sees your own sockets.
+- Fixed: the quarantine directory was named `inz-quarantine-<ts>.` with a stray dot, because the
+  timestamp was sliced out of the ISO string before the fractional seconds were stripped.
+
 ## 1.2 — 2026-10-05
 
 Portability fix and hand-off documentation.
