@@ -60,6 +60,13 @@ function build(base) {
   fs.writeFileSync(path.join(proj, 'notes.js'), "// 9a47bb48b7b8ca41fc138fd3372e8cc0 91.218.183.174\n");
   // benign control
   fs.writeFileSync(path.join(proj, 'app.js'), "const x=require('http');\n/* r */ global.i='v1'; global.j=2;\n");
+
+  // A CLEAN global npm install. This reproduces the CI condition that the parity job first
+  // caught: both builds must emit the same "target checked clean" info records here, or the
+  // finding sets diverge. Without it, parity only ever compares the synthetic fixture.
+  const nvmRoot = path.join(home, '.nvm', 'versions', 'node', 'v20.0.0', 'lib', 'node_modules');
+  fs.mkdirSync(path.join(nvmRoot, 'npm', 'lib'), {recursive: true});
+  fs.writeFileSync(path.join(nvmRoot, 'npm', 'lib', 'cli.js'), '// clean npm cli\nmodule.exports={};\n');
   return {home, proj};
 }
 

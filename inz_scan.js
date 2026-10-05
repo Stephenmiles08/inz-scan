@@ -259,9 +259,16 @@ function scanTargetFiles(t) {
     const txt = readText(p, 64 * 1024 * 1024);
     if (txt === null) continue;
     const hits = grepSignatures(p, txt, label);
-    for (const h of hits) {
-      h.action = fs.existsSync(p + '.inz.orig') && origIsPristine(p) ? 'restore-orig' : 'reinstall';
-      t.findings.push(h);
+    if (hits.length) {
+      for (const h of hits) {
+        h.action = fs.existsSync(p + '.inz.orig') && origIsPristine(p) ? 'restore-orig' : 'reinstall';
+        t.findings.push(h);
+      }
+    } else if (label) {
+      // record that a known target exists and was checked clean - the Python build does the
+      // same, and the parity check compares both builds, so they must agree here too
+      t.findings.push({kind: 'info', severity: 'info', path: p,
+        evidence: label + ': clean', action: 'manual', detail: ''});
     }
   }
 }
