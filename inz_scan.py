@@ -402,7 +402,7 @@ def scan_install_roots() -> list[Finding]:
 def scan_processes() -> list[Finding]:
     found: list[Finding] = []
     try:
-        out = subprocess.run(["ps", "-eo", "pid=,args="], capture_output=True, text=True,
+        out = subprocess.run(["ps", "-Ao", "pid=,args="], capture_output=True, text=True,
                              timeout=20, check=False).stdout
     except Exception:
         return found

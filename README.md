@@ -28,6 +28,58 @@ See **[IOCS.md](IOCS.md)** for the full indicator set and **[TECHNIQUE.md](TECHN
 
 ---
 
+## Requirements — one thing to check first
+
+**Python 3.8 or newer.** That is the entire dependency list — stdlib only, nothing to install.
+
+On macOS `python3` is **not** part of the OS. `/usr/bin/python3` is an Xcode Command Line Tools
+shim: if CLT is installed it works, and if it isn't, it either pops an installer or fails outright
+in a headless/SSH session. So check before installing anything:
+
+```bash
+python3 --version        # want 3.8 or newer
+```
+
+If that fails, either install the Command Line Tools (`xcode-select --install`, a few GB) or
+Homebrew's Python (`brew install python`). Most Node developers already have CLT, because native
+npm modules and Homebrew both need it — but don't assume it.
+
+> Tested with Python 3.12. This claim about macOS is *not* something we could verify — we have no
+> Mac to test on. Run `python3 --version` and see for yourself before anything else.
+
+---
+
+## Handing this to someone else
+
+The first step is always safe: `scan` is read-only and touches the network zero times, so it can be
+run on a live, working machine without any preparation.
+
+```bash
+# 1. on their Mac - preflight, then a read-only look
+python3 --version
+python3 inz_scan.py scan --json before.json
+
+# 2. have them send you before.json, and read it before touching anything
+python3 inz_scan.py remove-all --dry-run          # still changes nothing
+python3 inz_scan.py remove-all --yes              # quarantines, does not delete
+```
+
+Two things to get right when you hand it over:
+
+- **Send the single file, not a whole archive, and give them the SHA-256** so they can confirm what
+  they received is what you intended:
+  ```
+  20afc357e338de9fe459a32b241bf2d8b981057c267a85abcea1d44331e7d6de  inz_scan.py
+  ```
+  (`shasum -a 256 inz_scan.py` on macOS.) They can also read the whole thing first — it's ~36 KB of
+  plain Python with no minification and no bundled data.
+- **Treat `before.json` as sensitive.** It records hostnames, usernames and file paths from their
+  machine. It is not a public artefact.
+
+They do **not** need the rest of this repo to run a scan — `inz_scan.py` alone is complete.
+
+---
+
 ## What it finds
 
 **The packages** — all eight names above, with the version read from `package.json`.
