@@ -224,9 +224,14 @@ function globalNpmRoots() {
   });
 }
 
-function injectionTargets() {
+// `platform` overrides the FIXED application-path list only (that is the part that differs by OS,
+// and the part the test suite can assert). The trailing npm-root entries always come from
+// globalNpmRoots(), which inspects the real filesystem and the real `npm root -g` - you cannot
+// enumerate another OS's npm installs, so that part is deliberately not simulated.
+function injectionTargets(platform) {
+  const mac = (platform || process.platform) === 'darwin';
   const t = [];
-  if (IS_MAC) {
+  if (mac) {
     t.push(['/Applications/Visual Studio Code.app/Contents/Resources/app/out/main.js', 'VS Code main']);
     t.push(['/Applications/Visual Studio Code.app/Contents/Resources/app/node_modules/@vscode/deviceid/dist/index.js', 'VS Code deviceid']);
     t.push(['/Applications/Cursor.app/Contents/Resources/app/out/main.js', 'Cursor main']);
@@ -787,4 +792,5 @@ function main() {
 if (require.main === module) process.exit(main());
 
 module.exports = {VERSION, INJECTION_MARKERS, STRONG_SIGNATURES, MALICIOUS_PACKAGES,
-                  grepSignatures, stripInjected, origIsPristine, parseArgs};
+                  grepSignatures, stripInjected, origIsPristine, parseArgs,
+                  injectionTargets, C2_IPS, INSTALL_ROOTS, STAGING_SUFFIXES, ANTI_ANALYSIS_MD5};

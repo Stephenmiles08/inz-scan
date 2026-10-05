@@ -164,10 +164,76 @@ function main() {
       check(label + ': still valid JS after strip', !res.error && res.status === 0);
     }
 
+    console.log('\n--- npm CLI target (the worm\'s propagation engine) ---');
+    // This box may have no global npm install at all, so build one under a fake $HOME via the
+    // nvm path - that exercises the same discovery branch a real user's machine hits.
+    const nvmHome = path.join(base, 'nvmhome');
+    const nvmRoot = path.join(nvmHome, '.nvm', 'versions', 'node', 'v20.0.0', 'lib', 'node_modules');
+    const npmCli = path.join(nvmRoot, 'npm', 'lib', 'cli.js');
+    fs.mkdirSync(path.dirname(npmCli), {recursive: true});
+    fs.writeFileSync(npmCli, '// clean npm cli\nmodule.exports={};\n');
+    fs.writeFileSync(npmCli + '.inz.orig', '// clean npm cli\nmodule.exports={};\n');
+    fs.writeFileSync(npmCli,
+      "// npm cli\n" + SHIM + MARKER + '\n' + PROLOGUE);
+
+    let nr = run(nvmHome, ['scan', '--root', nvmHome]);
+    check('infected npm CLI detected (nvm-discovered root)',
+      nr.out.indexOf(npmCli) !== -1 && nr.out.indexOf('[npm CLI]') !== -1);
+    nr = run(nvmHome, ['remove-all', '--yes', '--root', nvmHome]);
+    check('npm CLI restored byte-exact from its .inz.orig',
+      fs.readFileSync(npmCli, 'utf8') === '// clean npm cli\nmodule.exports={};\n');
+    check('npm CLI is clean afterwards',
+      ['__inzRQ', 'global.j=1', MARKER].every((m) => fs.readFileSync(npmCli, 'utf8').indexOf(m) === -1));
+
     console.log('\n--- option handling ---');
     r = run(home, ['remove-all', '--root', proj]);
     check('remove-all without --yes exits 2 and changes nothing',
       r.code === 2 && r.out.indexOf('Re-run with --yes') !== -1, 'got ' + r.code);
+
+    // ---- platform branching: verifiable without a Mac, so do it here ----
+    console.log('\n--- platform branching (darwin logic asserted on this platform) ---');
+    const scanner = require(path.join(__dirname, 'inz_scan.js'));
+    const mac = scanner.injectionTargets('darwin').map((x) => x[0]);
+    const lin = scanner.injectionTargets('linux').map((x) => x[0]);
+    const win = scanner.injectionTargets('win32').map((x) => x[0]);
+    check('darwin set contains the /Applications VS Code main.js target',
+      mac.indexOf('/Applications/Visual Studio Code.app/Contents/Resources/app/out/main.js') !== -1);
+    check('darwin set contains all 8 fixed macOS paths',
+      mac.filter((p) => p.indexOf('/Applications/') === 0 ||
+                        p.indexOf('Library/Application Support/discord') !== -1).length === 8,
+      'got ' + mac.length + ' total');
+    check('darwin set has NO Linux /usr/share paths',
+      !mac.some((p) => p.indexOf('/usr/share/') === 0));
+    check('linux set has NO /Applications paths',
+      !lin.some((p) => p.indexOf('/Applications/') === 0));
+    check('darwin and linux target sets differ',
+      JSON.stringify(mac) !== JSON.stringify(lin));
+    // The npm-root entries come from the real filesystem, so they must be IDENTICAL across
+    // simulated platforms - only the fixed application-path block switches on platform.
+    const npmOf = (s) => s.filter((p) => p.indexOf('npm' + path.sep + 'lib') !== -1 ||
+                                       p.indexOf('npm\\lib') !== -1).sort();
+    check('npm-root targets are platform-independent (real FS, both simulated sets agree)',
+      JSON.stringify(npmOf(mac)) === JSON.stringify(npmOf(lin)));
+    // ...but whether ANY npm root exists at all is environment-dependent: a container with no
+    // global npm install legitimately yields none. Assert conditionally instead of pretending.
+    const globalNpmRootExists = (() => {
+      for (const c of ['/usr/local/lib/node_modules', '/opt/homebrew/lib/node_modules',
+                       '/usr/lib/node_modules']) {
+        try { if (fs.statSync(c).isDirectory()) return true; } catch (e) {}
+      }
+      const r = spawnSync('npm', ['root', '-g'], {encoding: 'utf8', timeout: 20000});
+      if (r.status === 0 && r.stdout) {
+        try { return fs.statSync(r.stdout.trim()).isDirectory(); } catch (e) { return false; }
+      }
+      return false;
+    })();
+    if (globalNpmRootExists) {
+      check('a machine WITH a global npm install gets the npm CLI target',
+        npmOf(scanner.injectionTargets()).length > 0);
+    } else {
+      console.log('  [SKIP] no global npm install on this machine (npm root -g does not resolve' +
+                  ' to an existing dir) - npm-CLI target assertion not applicable here');
+    }
   } finally {
     rmrf(base);
   }
