@@ -210,8 +210,10 @@ function main() {
       JSON.stringify(mac) !== JSON.stringify(lin));
     // The npm-root entries come from the real filesystem, so they must be IDENTICAL across
     // simulated platforms - only the fixed application-path block switches on platform.
-    const npmOf = (s) => s.filter((p) => p.indexOf('npm' + path.sep + 'lib') !== -1 ||
-                                       p.indexOf('npm\\lib') !== -1).sort();
+    // Accept either the raw [path, label] pairs from injectionTargets() or plain path strings.
+    const npmOf = (s) => s.map((x) => (Array.isArray(x) ? x[0] : x))
+                          .filter((p) => p.indexOf('npm' + path.sep + 'lib') !== -1 ||
+                                         p.indexOf('npm\\lib') !== -1).sort();
     check('npm-root targets are platform-independent (real FS, both simulated sets agree)',
       JSON.stringify(npmOf(mac)) === JSON.stringify(npmOf(lin)));
     // ...but whether ANY npm root exists at all is environment-dependent: a container with no
